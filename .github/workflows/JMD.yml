@@ -1,0 +1,51 @@
+name: Update
+
+on:
+  schedule:
+    - cron: 02 */1 * * *
+  push:
+   branches:
+    - main
+  workflow_dispatch:  # 添加手动触发事件
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  Update:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: GetTime
+      run: echo "DATE=$(date +'%Y-%m-%d %H:%M:%S CST')" >> $GITHUB_ENV
+    - name: Update
+      run: |
+        # 卫视源m3u
+        rm -f ipv6.m3u && wget https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/ipv6.m3u -O ipv6.m3u
+        sed -i 's/其他频道/地方频道/' ipv6.m3u
+        sed -i '/^\s*$/d' ipv6.m3u
+        # 高清源m3u
+        rm -f Shandong_dianxin.txt && wget https://sdddx.yangfeiyue.dpdns.org/txt/Shandong_dianxin.txt -O Shandong_dianxin.txt
+        rm -f jmd.txt && wget https://proxy.lalifeier.eu.org/https://raw.githubusercontent.com/zjyktcyfy/zj-fy/refs/heads/main/jmd.m3u -O jmd.txt
+        # 整合源
+        rm -f all.m3u && touch all.m3u 
+        cat jmd.txt >> all.m3u        
+        cat Shandong_dianxin.txt >> all.m3u
+        sed -i '/^\s*$/d' all.m3u
+        
+        rm -f JMD.xml && wget https://epg.112114.xyz/pp.xml -O JMD.xml
+         echo "已于 $DATE 自动更新频道。免责声明: 所有播放源均收集于互联网，仅供测试研究学习，不得商用，否则后果自负，均与本人无关。如有侵权，请联系删除。" > README.md
+
+    - name: Clean
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git checkout --orphan latest_branch
+        git add -A
+        git commit -am "$DATE"
+        git branch -D main
+        git branch -m main
+
+    - name: Push
+      run: git push -f origin main
